@@ -17,10 +17,23 @@ defmodule NodeSsr.Watcher do
   def init(opts) do
     node_exe = opts[:node_exe] || System.find_executable("node")
 
+    # open a temporary udp socket for IPC between nodejs process and this gen_server
+    {:ok, socket} = :gen_udp.open(0, active: false)
+    # figure out what random port was selected
+    {:ok, udp_port} = :inet.port(socket)
+
+    # could open this up via an option to allow passing more into the node env.
+    env = [
+      {"NODE_PATH", opts[:node_path]},
+      {"COMPONENT_PATH", opts[:component_path]},
+      {"COMPONENT_EXT", opts[:component_ext]},
+      {"SIGNAL_PORT", udp_port}
+    ]
+
     exec_opts = [
       stderr: stderr_path(opts),
       stdout: stdout_path(opts),
-      env: [{"NODE_PATH", opts[:node_path]}]
+      env: env
     ]
 
     Logger.info("Starting node ssr server at http://localhost:#{opts[:port]}")
@@ -29,9 +42,22 @@ defmodule NodeSsr.Watcher do
       [node_exe, opts[:script_path], opts[:port]]
       |> Exexec.run_link(exec_opts)
 
-    # sleep for 500ms to allow the service to be responsive
-    Process.sleep(opts[:wait])
-    {:ok, %{pid: pid, port: opts[:port], os_pid: os_pid}}
+    # wait for up to 1 second to recieve an 'OK' packet
+    result =
+      :gen_udp.recv(socket, 32, 1000)
+      |> case do
+        {:ok, {_addr, _port, 'OK'}} ->
+          # close udp socket.
+          :gen_udp.close(socket)
+          Logger.info("Confirmed Node process is listening - starting...")
+          # closing temporary socket.
+          {:ok, %{pid: pid, port: opts[:port], os_pid: os_pid}}
+
+        _ ->
+          {:stop, "Node process failed to start..."}
+      end
+
+    result
   end
 
   defp stdout_path(opts) do

@@ -1,5 +1,5 @@
 {
-  "name": "elixir_node_ssr",
+  "name": "elixir-node-ssr",
   "version": "0.1.0",
   "description": "Monitor and run local nodejs processes for performing JS SSR from within an Elixir application.",
   "license": "MIT",

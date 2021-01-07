@@ -15,7 +15,14 @@ defmodule NodeSsr.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {NodeSsr.Application, []}
+      mod: {NodeSsr.Application, []},
+      env: [
+        ports: [8080],
+        module_paths: ["./assets/node_modules", "./assets"],
+        log_prefix: "/tmp",
+        component_path: "js/components",
+        component_ext: ".js"
+      ]
     ]
   end
 
@@ -24,7 +31,7 @@ defmodule NodeSsr.MixProject do
     [
       {:exexec, "~> 0.2.0"},
       {:httpoison, "~> 1.7"},
-      {:jason, "~> 1.1"},
+      {:jason, "~> 1.1"}
     ]
   end
 end

@@ -21,9 +21,9 @@ defmodule NodeSsr do
   @spec render(String.t(), map(), keyword()) :: {:ok, map()} | {:error, map()}
   def render(component, props \\ %{}, _opts \\ []) do
     # grab a random worker port
-    random_worker = random_worker_port()
+    port = random_worker_port()
 
-    [host: "localhost", port: random_worker, component: component]
+    [host: "localhost", port: port, component: component]
     |> render_service_url()
     |> HTTPoison.post(Jason.encode!(props))
     |> case do
@@ -33,7 +33,7 @@ defmodule NodeSsr do
 
       _ ->
         # not a very recoverable error...if running during compilation this should just crash
-        raise "Error reaching js component server at localhost:#{random_worker}"
+        raise "Error reaching js component server at localhost:#{port}"
     end
   end
 

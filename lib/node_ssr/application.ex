@@ -7,23 +7,24 @@ defmodule NodeSsr.Application do
 
   @impl true
   def start(_type, _args) do
-    ports = conf(:ports, nil) || raise "Must provide a port via application config"
+    ports = conf(:ports, nil) || raise "Must provide ports via application config"
     script_path = conf(:script_path, nil) || raise "Must provide a script path"
-    mod_paths = conf(:module_paths, ["./assets/node_modules", "./assets"])
-    log_prefix = conf(:log_prefix, "/tmp")
+    mod_paths = conf(:module_paths, ["./assets/node_modules", "./assets"]) |> join_mod_paths()
 
     children =
-      Enum.map(ports, fn port ->
-        [
-          id: make_id(port),
-          port: port,
-          node_path: join_mod_paths(mod_paths),
+      Enum.map(
+        ports,
+        &NodeSsr.Watcher.child_spec(
+          id: make_id(&1),
+          port: &1,
+          node_path: mod_paths,
           script_path: script_path,
-          log_prefix: log_prefix,
+          component_ext: conf(:component_ext, ".js"),
+          component_path: conf(:component_path, "js/components"),
+          log_prefix: conf(:log_prefix, "/tmp"),
           wait: conf(:wait, 500)
-        ]
-        |> NodeSsr.Watcher.child_spec()
-      end)
+        )
+      )
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

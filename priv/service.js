@@ -1,17 +1,31 @@
+/**
+ * barebones 0 dependency Node HTTP server with one job. Respond to post requests with a rendered component.
+ *
+ * When starting the service, must supply a render function that accepts two parameters - the component name, and props to be rendered.
+ */
+
 const http = require("http");
-const url = require("url");
+const dgram = require("dgram");
+const message = Buffer.from("OK");
 
 const defaultOpts = {
-  componentBase: `js/components`,
-  componentExt: ".js",
   debug: false,
   port: 8080,
 };
 
 function start(render, opts = defaultOpts) {
+  const { SIGNAL_PORT } = process.env;
+  const client = dgram.createSocket("udp4");
+
   opts = { ...defaultOpts, ...opts };
-  console.log("Starting ssr service on port: ", opts.port)
-  http.createServer(requestHandler(render, opts)).listen(opts.port);
+  console.log("Starting ssr service on port: ", opts.port);
+  http
+    .createServer(requestHandler(render, opts))
+    .listen({ port: opts.port }, () => {
+      client.send(message, parseInt(SIGNAL_PORT), "localhost", (err) => {
+        client.close();
+      });
+    });
 }
 
 const contentTypeHeader = { "Content-Type": "application/json" };
@@ -20,31 +34,30 @@ function requestHandler(render, opts) {
   const { componentBase, componentExt } = opts;
   // return an async request handler.
   return async (req, res) => {
+    const parsedURL = new URL(req.url, `http://${req.headers.host}`);
     // all requests need a response, make it.
     var resp;
     // render requests are posts.
     if (req.method === "POST") {
-      // parse query params for component name
-      const q = url.parse(req.url, true).query;
+      // grab component name from query params
+      const componentName = parsedURL.searchParams.get("component");
+
       try {
-        if (q.component) {
-          // try
-          res.writeHead(200, contentTypeHeader);
+        if (componentName) {
+          // grabs + decodes props from json body via promise.
           const props = await resolveBody(req);
-          const componentPath = q.component.endsWith(componentExt)
-            ? `${componentBase}/${q.component}`
-            : `${componentBase}/${q.component}${componentExt}`;
-          resp = render(componentPath, props);
+          res.writeHead(200, contentTypeHeader);
+          resp = render(componentName, props);
         } else {
           resp = {
             error: "Must supply component query parameter",
-            params: JSON.stringify(q),
+            params: q,
           };
         }
       } catch (e) {
         console.error(e);
         res.writeHead(500, contentTypeHeader);
-        resp = { error: e.message, params: JSON.stringify(q) };
+        resp = { error: e.message, params: q };
       }
       // can perform a health check with a get to the /
     } else if (req.method === "GET") {
