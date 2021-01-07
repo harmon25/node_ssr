@@ -6,6 +6,7 @@ defmodule NodeSsr.MixProject do
       app: :node_ssr,
       version: "0.1.0",
       elixir: "~> 1.11",
+      package: package(),
       start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
@@ -32,6 +33,17 @@ defmodule NodeSsr.MixProject do
       {:exexec, "~> 0.2.0"},
       {:httpoison, "~> 1.7"},
       {:jason, "~> 1.1"}
+    ]
+  end
+
+
+  defp package do
+    [
+      name: :node_ssr,
+      files: ["lib", "priv", "mix.exs", "package.json", "README*", "LICENSE*"],
+      maintainers: ["Doug W."],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/harmon25/node_ssr"}
     ]
   end
 end
