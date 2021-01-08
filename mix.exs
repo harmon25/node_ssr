@@ -31,6 +31,7 @@ defmodule NodeSsr.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:erlexec, "~> 1.17.6", override: true},
       {:exexec, "~> 0.2.0"},
       {:httpoison, "~> 1.7"},
       {:jason, "~> 1.1"}
