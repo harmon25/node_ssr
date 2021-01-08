@@ -18,7 +18,7 @@ defmodule NodeSsr.MixProject do
       extra_applications: [:logger, :hackney],
       mod: {NodeSsr.Application, []},
       env: [
-        ports: [8080],
+        count: 1,
         module_paths: ["./assets/node_modules", "./assets"],
         log_prefix: "/tmp",
         component_path: "js/components",

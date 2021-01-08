@@ -36,22 +36,23 @@ defmodule NodeSsr.Watcher do
       env: env
     ]
 
-    Logger.info("Starting node ssr server at http://localhost:#{opts[:port]}")
-
     {:ok, pid, os_pid} =
-      [node_exe, opts[:script_path], opts[:port]]
+      [node_exe, opts[:script_path]]
       |> Exexec.run_link(exec_opts)
 
     # wait for up to 1 second to recieve an 'OK' packet
     result =
       :gen_udp.recv(socket, 32, 1000)
       |> case do
-        {:ok, {_addr, _port, 'OK'}} ->
+        {:ok, {_addr, _port, tcp_port}} ->
+          port_int = List.to_integer(tcp_port)
+          ports = :persistent_term.get(:node_ssr_ports, [])
+          :persistent_term.put(:node_ssr_ports, [port_int | ports])
           # close udp socket.
           :gen_udp.close(socket)
-          Logger.info("Confirmed Node process is listening - starting...")
+          Logger.info("Confirmed Node process is listening on #{port_int}")
           # closing temporary socket.
-          {:ok, %{pid: pid, port: opts[:port], os_pid: os_pid}}
+          {:ok, %{pid: pid, port: port_int, os_pid: os_pid}}
 
         _ ->
           {:stop, "Node process failed to start..."}

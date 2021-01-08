@@ -5,7 +5,6 @@ const testRender = (path, props) => {
 };
 
 const opts = {
-  port: process.argv[2] ? parseInt(process.argv[2]) : 8080,
   debug: false,
 };
 

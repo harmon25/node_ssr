@@ -44,7 +44,8 @@ defmodule NodeSsr do
   defp service_url(args), do: "http://#{args[:host] || "localhost"}:#{args[:port]}/"
 
   defp random_worker_port() do
-    Application.get_env(:node_ssr, :ports, nil)
+
+    :persistent_term.get(:node_ssr_ports, nil)
     |> case do
       nil -> raise "No SSR worker ports configured."
       [port] -> port

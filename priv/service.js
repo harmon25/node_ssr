@@ -6,11 +6,10 @@
 
 const http = require("http");
 const dgram = require("dgram");
-const message = Buffer.from("OK");
+
 
 const defaultOpts = {
   debug: false,
-  port: 8080,
 };
 
 function start(render, opts = defaultOpts) {
@@ -18,10 +17,13 @@ function start(render, opts = defaultOpts) {
   const client = dgram.createSocket("udp4");
 
   opts = { ...defaultOpts, ...opts };
-  console.log("Starting ssr service on port: ", opts.port);
-  http
+
+  const server = http
     .createServer(requestHandler(render, opts))
-    .listen({ port: opts.port }, () => {
+    .listen({ port: 0 }, () => {
+      const portStr = `${server.address().port}`
+      const message = Buffer.from(portStr);
+      console.log("Starting ssr service on port: ", portStr);
       client.send(message, parseInt(SIGNAL_PORT), "localhost", (err) => {
         client.close();
       });

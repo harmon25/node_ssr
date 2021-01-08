@@ -7,22 +7,20 @@ defmodule NodeSsr.Application do
 
   @impl true
   def start(_type, _args) do
-    ports = conf(:ports, nil) || raise "Must provide ports via application config"
+    count = conf(:count, 1)
     script_path = conf(:script_path, nil) || raise "Must provide a script path"
     mod_paths = conf(:module_paths, ["./assets/node_modules", "./assets"]) |> join_mod_paths()
 
     children =
       Enum.map(
-        ports,
+        Range.new(1, count + 1),
         &NodeSsr.Watcher.child_spec(
           id: make_id(&1),
-          port: &1,
           node_path: mod_paths,
           script_path: script_path,
           component_ext: conf(:component_ext, ".js"),
           component_path: conf(:component_path, "js/components"),
-          log_prefix: conf(:log_prefix, "/tmp"),
-          wait: conf(:wait, 500)
+          log_prefix: conf(:log_prefix, "/tmp")
         )
       )
 
@@ -32,8 +30,8 @@ defmodule NodeSsr.Application do
     Supervisor.start_link(children, opts)
   end
 
-  defp make_id(port) do
-    String.to_atom("node_ssr_worker_#{port}")
+  defp make_id(int) do
+    String.to_atom("node_ssr_worker_#{int}")
   end
 
   defp conf(key, default), do: Application.get_env(:node_ssr, key, default)
