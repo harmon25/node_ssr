@@ -13,7 +13,7 @@ defmodule NodeSsr.Application do
 
     children =
       Enum.map(
-        Range.new(1, count + 1),
+        Range.new(1, count),
         &NodeSsr.Watcher.child_spec(
           id: make_id(&1),
           node_path: mod_paths,
@@ -28,6 +28,13 @@ defmodule NodeSsr.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: NodeSsr.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  @impl true
+  def stop(_state) do
+    # clean up persisten term when exited
+    :persistent_term.erase(:node_ssr_ports)
+    :ok
   end
 
   defp make_id(int) do

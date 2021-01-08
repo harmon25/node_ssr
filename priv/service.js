@@ -7,11 +7,16 @@
 const http = require("http");
 const dgram = require("dgram");
 
-
 const defaultOpts = {
   debug: false,
 };
 
+/**
+ * Starts the nodejs http listener, and messages pa
+ *
+ * @param {function} render
+ * @param {Object} opts
+ */
 function start(render, opts = defaultOpts) {
   const { SIGNAL_PORT } = process.env;
   const client = dgram.createSocket("udp4");
@@ -21,25 +26,28 @@ function start(render, opts = defaultOpts) {
   const server = http
     .createServer(requestHandler(render, opts))
     .listen({ port: 0 }, () => {
-      const portStr = `${server.address().port}`
-      const message = Buffer.from(portStr);
+      const portStr = `${server.address().port}`;
       console.log("Starting ssr service on port: ", portStr);
-      client.send(message, parseInt(SIGNAL_PORT), "localhost", (err) => {
-        client.close();
-      });
+      client.send(
+        Buffer.from(portStr),
+        parseInt(SIGNAL_PORT),
+        "localhost",
+        (err) => {
+          client.close();
+        }
+      );
     });
 }
 
 const contentTypeHeader = { "Content-Type": "application/json" };
 
 function requestHandler(render, opts) {
-  const { componentBase, componentExt } = opts;
   // return an async request handler.
   return async (req, res) => {
     const parsedURL = new URL(req.url, `http://${req.headers.host}`);
-    // all requests need a response, make it.
+    // all requests need a response, define it.
     var resp;
-    // render requests are posts.
+    // render requests are posts - dont really care about URL path, just need component query param
     if (req.method === "POST") {
       // grab component name from query params
       const componentName = parsedURL.searchParams.get("component");
@@ -49,6 +57,8 @@ function requestHandler(render, opts) {
           // grabs + decodes props from json body via promise.
           const props = await resolveBody(req);
           res.writeHead(200, contentTypeHeader);
+          // calls supplied render function
+          // the return of which is json encoded and returned to elixir as the json body of http request
           resp = render(componentName, props);
         } else {
           resp = {
@@ -57,6 +67,7 @@ function requestHandler(render, opts) {
           };
         }
       } catch (e) {
+        // can check stderr log file to see this error output.
         console.error(e);
         res.writeHead(500, contentTypeHeader);
         resp = { error: e.message, params: q };
@@ -64,16 +75,16 @@ function requestHandler(render, opts) {
       // can perform a health check with a get to the /
     } else if (req.method === "GET") {
       res.writeHead(200, contentTypeHeader);
-      resp = { message: "OK" };
+      resp = { result: "OK", error: null };
     }
     let respString = JSON.stringify(resp);
     opts.debug && console.log(`SSR Response(${opts.port}):`, respString);
-    return res.end(respString); //end the response
+    return res.end(respString); //end the response, and send it.
   };
 }
 
 function resolveBody(req) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     let data = [];
     req.on("data", (chunk) => {
       data.push(chunk);

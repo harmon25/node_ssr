@@ -13,6 +13,7 @@ defmodule NodeSsr.Watcher do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  # bit bummed about dialyzer warning here...`Function init/1 has no local return`?
   @impl true
   def init(opts) do
     node_exe = opts[:node_exe] || System.find_executable("node")
@@ -27,38 +28,62 @@ defmodule NodeSsr.Watcher do
       {"NODE_PATH", opts[:node_path]},
       {"COMPONENT_PATH", opts[:component_path]},
       {"COMPONENT_EXT", opts[:component_ext]},
+      # this is used in the node process to message back when it is ready for http calls
       {"SIGNAL_PORT", udp_port}
-    ]
-
-    exec_opts = [
-      stderr: stderr_path(opts),
-      stdout: stdout_path(opts),
-      env: env
     ]
 
     {:ok, pid, os_pid} =
       [node_exe, opts[:script_path]]
-      |> Exexec.run_link(exec_opts)
+      |> Exexec.run_link(
+        stderr: stderr_path(opts),
+        stdout: stdout_path(opts),
+        env: env
+      )
 
-    # wait for up to 1 second to recieve an 'OK' packet
-    result =
-      :gen_udp.recv(socket, 32, 1000)
-      |> case do
-        {:ok, {_addr, _port, tcp_port}} ->
-          port_int = List.to_integer(tcp_port)
-          ports = :persistent_term.get(:node_ssr_ports, [])
-          :persistent_term.put(:node_ssr_ports, [port_int | ports])
-          # close udp socket.
-          :gen_udp.close(socket)
-          Logger.info("Confirmed Node process is listening on #{port_int}")
-          # closing temporary socket.
-          {:ok, %{pid: pid, port: port_int, os_pid: os_pid}}
+    # wait for up to 1.5 seconds to receive a udp packet on the random port from the launched nodejs process.
+    # the packet contains the random tcp port that was opened by nodejs.
+    :gen_udp.recv(socket, 32, 1500)
+    |> case do
+      {:ok, {_addr, _port, tcp_port}} ->
+        port_int = List.to_integer(tcp_port)
+        :ok = add_port({port_int, self()})
+        # close udp socket.
+        :gen_udp.close(socket)
+        Logger.debug("Confirmed Node process is listening on #{port_int}")
+        {:ok, %{pid: pid, port: port_int, os_pid: os_pid}}
 
-        _ ->
-          {:stop, "Node process failed to start..."}
-      end
+      _ ->
+        Exexec.stop(pid)
+        {:stop, "Node process failed to start..."}
+    end
+  end
 
-    result
+  @impl true
+  def handle_info({:EXIT, _from, reason}, state) do
+    IO.inspect("exiting")
+    remove_port(state.port)
+    # see GenServer docs for other return types
+    {:stop, reason, state}
+  end
+
+  @impl true
+  def terminate(state, reason) do
+    Logger.debug("Terminated #{__MODULE__} on port #{state.port}, reason: #{reason}")
+    Exexec.stop(state.pid)
+    remove_port(state.port)
+    :normal
+  end
+
+  defp add_port(new_port) do
+    # using persistent term for shared state to track all the opened tcp ports - is only ever written here
+    ports = :persistent_term.get(:node_ssr_ports, [])
+    :persistent_term.put(:node_ssr_ports, [new_port | ports])
+  end
+
+  defp remove_port(old_port) do
+    # using persistent term for shared state to track all the opened tcp ports - is only ever written here
+    ports = :persistent_term.get(:node_ssr_ports, [])
+    :persistent_term.put(:node_ssr_ports, Enum.filter(ports, &(elem(&1, 0) !== old_port)))
   end
 
   defp stdout_path(opts) do

@@ -8,12 +8,11 @@ defmodule NodeSsr do
 
   @spec check_render_service(non_neg_integer()) :: :error | :ok
   def check_render_service(port) do
-
     [host: "localhost", port: port]
     |> service_url()
     |> HTTPoison.get()
     |> case do
-      {:ok, %{status_code: 200, body: "{\"message\":\"OK\"}"}} -> :ok
+      {:ok, %{status_code: 200, body: "{\"result\":\"OK\",\"error\":null}"}} -> :ok
       _ -> :error
     end
   end
@@ -37,21 +36,25 @@ defmodule NodeSsr do
     end
   end
 
+  @spec all_ports :: [Integer.t()]
+  def all_ports() do
+    :persistent_term.get(:node_ssr_ports, [])
+  end
+
+  defp random_worker_port() do
+    all_ports()
+    |> case do
+      [] -> raise "No SSR worker ports launched"
+      [{port, _pid}] -> port
+      ports -> elem(Enum.random(ports), 0)
+    end
+  end
+
   defp render_service_url(args) do
     service_url(args) <> "?" <> URI.encode_query(component: args[:component])
   end
 
   defp service_url(args), do: "http://#{args[:host] || "localhost"}:#{args[:port]}/"
-
-  defp random_worker_port() do
-
-    :persistent_term.get(:node_ssr_ports, nil)
-    |> case do
-      nil -> raise "No SSR worker ports configured."
-      [port] -> port
-      ports -> Enum.random(ports)
-    end
-  end
 
   defp handle_response({:ok, %{error: nil}} = resp), do: resp
   defp handle_response({:ok, %{error: error}}), do: {:error, error}
