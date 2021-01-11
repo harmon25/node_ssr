@@ -25,7 +25,7 @@ defmodule NodeSsr.Watcher do
 
     # could open this up via an option to allow passing more into the node env.
     env = [
-      {"NODE_PATH", "#{opts[:assets_path]};#{opts[:assets_path]}/node_modules"},
+      {"NODE_PATH", join_mod_paths([opts[:assets_path], opts[:assets_path] <> "/node_modules"])},
       {"COMPONENT_PATH", opts[:component_path]},
       {"COMPONENT_EXT", opts[:component_ext]},
       # this is used in the node process to message back when it is ready for http calls
@@ -77,7 +77,6 @@ defmodule NodeSsr.Watcher do
     :normal
   end
 
-
   defp stdout_path(opts) do
     Path.join([opts[:log_prefix], "node_ssr_stdout"])
   end
@@ -85,4 +84,7 @@ defmodule NodeSsr.Watcher do
   defp stderr_path(opts) do
     Path.join([opts[:log_prefix], "node_ssr_stderr"])
   end
+
+  # if on windows path seperator is not a colon, it is a semicolon - but Exexec will not work on windows anyway...
+  defp join_mod_paths(paths), do: Enum.join(paths, ":")
 end
