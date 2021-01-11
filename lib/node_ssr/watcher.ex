@@ -29,7 +29,9 @@ defmodule NodeSsr.Watcher do
       {"COMPONENT_PATH", opts[:component_path]},
       {"COMPONENT_EXT", opts[:component_ext]},
       # this is used in the node process to message back when it is ready for http calls
-      {"SIGNAL_PORT", "#{udp_port}"}
+      {"SIGNAL_PORT", "#{udp_port}"},
+      # how many workers to fork in node cluster
+      {"NODE_WORKERS", "#{opts[:count]}"}
     ]
 
     {:ok, pid, os_pid} =
@@ -87,10 +89,10 @@ defmodule NodeSsr.Watcher do
   end
 
   defp stdout_path(opts) do
-    Path.join([opts[:log_prefix], "stdout_#{opts[:id]}"])
+    Path.join([opts[:log_prefix], "node_ssr_stdout"])
   end
 
   defp stderr_path(opts) do
-    Path.join([opts[:log_prefix], "stderr_#{opts[:id]}"])
+    Path.join([opts[:log_prefix], "node_ssr_stderr"])
   end
 end

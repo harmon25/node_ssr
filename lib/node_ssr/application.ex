@@ -11,18 +11,16 @@ defmodule NodeSsr.Application do
     script_path = conf(:script_path, nil) || raise "Must provide a script path"
     mod_paths = conf(:module_paths, ["./assets/node_modules", "./assets"]) |> join_mod_paths()
 
-    children =
-      Enum.map(
-        Range.new(1, count),
-        &NodeSsr.Watcher.child_spec(
-          id: make_id(&1),
-          node_path: mod_paths,
-          script_path: script_path,
-          component_ext: conf(:component_ext, ".js"),
-          component_path: conf(:component_path, "js/components"),
-          log_prefix: conf(:log_prefix, "/tmp")
-        )
-      )
+    children = [ NodeSsr.Watcher.child_spec(
+      id: NodeSsr.Watcher,
+      node_path: mod_paths,
+      script_path: script_path,
+      count: count,
+      component_ext: conf(:component_ext, ".js"),
+      component_path: conf(:component_path, "js/components"),
+      log_prefix: conf(:log_prefix, "/tmp")
+    )]
+
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

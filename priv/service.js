@@ -7,7 +7,6 @@
 const http = require("http");
 const dgram = require("dgram");
 const cluster = require("cluster");
-const numCPUs = require("os").cpus().length;
 
 const defaultOpts = {
   debug: false,
@@ -20,38 +19,42 @@ const defaultOpts = {
  * @param {Object} opts
  */
 function start(render, opts = defaultOpts) {
+  const { SIGNAL_PORT, NODE_WORKERS } = process.env;
   if (cluster.isMaster) {
-    console.log(`Master ${process.pid} is running`);
+    // this is the master code - run only once, which is proxying to the workers
+    const numCPUs = require("os").cpus().length;
+    const numWorkers = (NODE_WORKERS ? parseInt(NODE_WORKERS) : null) || numCPUs;
+
+    // console.log(`Master ${process.pid} is running`);
 
     // Fork workers.
-    for (let i = 0; i < numCPUs; i++) {
+    for (let i = 0; i < numWorkers; i++) {
       cluster.fork();
     }
 
     cluster.on("exit", (worker, code, signal) => {
       console.log(`worker ${worker.process.pid} died`);
     });
+
+    let clusterPort = null;
+
+    cluster.on("listening", (worker, address) => {
+      // when we have something listening, message back with the port.
+      if (clusterPort === null) {
+        clusterPort = address.port;
+        console.log(`Listening on port: ${clusterPort}`);
+        const client = dgram.createSocket("udp4");
+        const msg = Buffer.from(`${address.port}`);
+        client.send(msg, parseInt(SIGNAL_PORT), "localhost", (err) => {
+          client.close();
+        });
+      }
+    });
   } else {
-    const { SIGNAL_PORT } = process.env;
-    const client = dgram.createSocket("udp4");
-
+    // this is the worker code, executing in each fork
     opts = { ...defaultOpts, ...opts };
-
-    const server = http
-      .createServer(requestHandler(render, opts))
-      .listen(0, () => {
-        const portStr = `${server.address().port}`;
-         client.send(
-          Buffer.from(portStr),
-          parseInt(SIGNAL_PORT),
-          "localhost",
-          (err) => {
-            client.close();
-          }
-        );
-      });
-
-    console.log(`Worker ${process.pid} started`);
+    http.createServer(requestHandler(render, opts)).listen(0);
+    // console.log(`Worker ${process.pid} started`);
   }
 }
 
