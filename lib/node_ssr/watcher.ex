@@ -25,7 +25,6 @@ defmodule NodeSsr.Watcher do
 
     # could open this up via an option to allow passing more into the node env.
     env = [
-      {"NODE_PATH", opts[:node_path]},
       {"COMPONENT_PATH", opts[:component_path]},
       {"COMPONENT_EXT", opts[:component_ext]},
       # this is used in the node process to message back when it is ready for http calls
@@ -35,8 +34,9 @@ defmodule NodeSsr.Watcher do
     ]
 
     {:ok, pid, os_pid} =
-      [node_exe, opts[:script_path]]
+      [node_exe, opts[:script_name]]
       |> :exec.run_link(
+        cd: opts[:assets_path],
         stderr: stderr_path(opts),
         stdout: stdout_path(opts),
         env: env
@@ -48,7 +48,7 @@ defmodule NodeSsr.Watcher do
     |> case do
       {:ok, {_addr, _port, tcp_port}} ->
         port_int = List.to_integer(tcp_port)
-        :ok = add_port({port_int, self()})
+        :ok = NodeSsr.set_port({port_int, self()})
         # close udp socket.
         :gen_udp.close(socket)
         Logger.debug("Confirmed Node process is listening on #{port_int}")
@@ -62,8 +62,8 @@ defmodule NodeSsr.Watcher do
 
   @impl true
   def handle_info({:EXIT, _from, reason}, state) do
-    IO.inspect("exiting")
-    remove_port(state.port)
+    Logger.debug("Exiting #{__MODULE__} on port #{state.port}, reason: #{reason}")
+    NodeSsr.clear_port()
     # see GenServer docs for other return types
     {:stop, reason, state}
   end
@@ -71,22 +71,11 @@ defmodule NodeSsr.Watcher do
   @impl true
   def terminate(state, reason) do
     Logger.debug("Terminated #{__MODULE__} on port #{state.port}, reason: #{reason}")
+    NodeSsr.clear_port()
     :exec.stop(state.pid)
-    remove_port(state.port)
     :normal
   end
 
-  defp add_port(new_port) do
-    # using persistent term for shared state to track all the opened tcp ports - is only ever written here
-    ports = :persistent_term.get(:node_ssr_ports, [])
-    :persistent_term.put(:node_ssr_ports, [new_port | ports])
-  end
-
-  defp remove_port(old_port) do
-    # using persistent term for shared state to track all the opened tcp ports - is only ever written here
-    ports = :persistent_term.get(:node_ssr_ports, [])
-    :persistent_term.put(:node_ssr_ports, Enum.filter(ports, &(elem(&1, 0) !== old_port)))
-  end
 
   defp stdout_path(opts) do
     Path.join([opts[:log_prefix], "node_ssr_stdout"])

@@ -1,25 +1,22 @@
 # NodeSsr
 
-Elixir Application for managing nodejs worker processes, whose responsibility is server side rendering.
+Elixir Application for managing nodejs http server cluster, and communicating to it from elixir.
 Since this is an application - it can be used easily at compile time by simply calling `Application.ensure_all_started(:node_ssr)` before any calls to `NodeSsr.render/2`.
-
-Since we are using `erlexec` to launch the nodejs process, Windows it not currently supported. Am open to changing the external process launching for better Windows compatibility.
 
 NodeSsr was designed to be used at compile time - but could be used to provide SSR at runtime for a Phoenix application.
 
-IPC between Nodejs and Elixir is done through a basic node [http server](https://nodejs.org/api/http.html#http_class_http_server) running in each nodejs worker process. The design is intentional to avoid the complications of using stdout
-
-Used by [ReactSurface](https://github.com/harmon25/react_surface) to provide the SSR macro.
-
-Could be leveraged to provide SSR for other frameworks like Vue, Svelte etc based on how ReactSurface is implemented.
+IPC between Nodejs and Elixir is done through a simple nodejs http api running in a [nodejs cluster](https://nodejs.org/api/cluster.html#cluster_cluster).
 
 ## Usage Instructions
 
-Install node deps, create an SSR script(see example) in your assets directory, setup necessary config.exs values and run `NodeSsr.render/2` 
+1. Install node dependencies alongside your assets
+2. Create an SSR script(see example) in your assets directory
+3. Setup necessary config.exs values 
+4. Run `NodeSsr.render/2` 
 
 ## Node dependencies
 
-Requires babel (default phoenix setup is fine), and @babel/register as dev dependencies (if used at runtime might need to be actual deps)
+Requires babel (default phoenix setup is fine), and @babel/register as `devDependencies` (if used at runtime might need to be actual `dependencies`)
 ```sh
 npm i @babel/core @babel/register --save-dev
 ```
@@ -34,14 +31,15 @@ In package.json add the following dependency:
 ## Configuration 
 ```elixir
 config :node_ssr,
-   script_path: "#{File.cwd!()}/assets/ssr.js" # REQUIRED - This should live alongside your assets package.json
+   assets_path: "#{File.cwd!()}/assets", # REQUIRED - This be the folder with assets, and a package.json file - passed to erlexec `:cd` option
+   script_name: "test.js" # this is the name of the script to be invoked - defaults to "ssr.js", can change it here.
 ```
 
 Optional requirements:
 ``` elixir
   component_path: "js/components" # this is the default, relative path to your components directory from assets/.
-  component_ext: ".js" # this is the default, to help with nodejs require statements
-  count: 1 # this is the number of node processes to launch - likely not necessary to have more than 1, unless rendering lots of components
+  component_ext: ".js" # this is the default, used with nodejs require statements
+  count: 1 # this is the number of workers in the nodejs cluster - likely not necessary to have more than 1, unless rendering lots of components
 ```
 
 ## Example SSR script
@@ -54,14 +52,16 @@ require("@babel/register")({ cwd: __dirname });
 // starts local http service to perform Node SSR
 const startService = require("elixir-node-ssr");
 // a render function that takes a component name + props and returns a json response
+// this should include rendered html as markup, and whatever else you like that can be serialized to JSON
 const render = (componentName, props = {}) => {
-  return {markup: "SOME JS GENERATED MARKUP", extra: {}, error: null}
+  return {markup: "<h1>Hi From NodeJS</h1>", extra: {}, error: null}
 }
 const opts = {
   debug: false,
 };
 
-// starts listening on a random tcp port for render requests
+// service is forked by nodejs and runs one master, and N workers based on the `:count` optional application env option.
+// if nil count is supplied runs as many workers as CPU cores.
 startService(render, opts);
 ```
 
@@ -92,3 +92,6 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/node_ssr](https://hexdocs.pm/node_ssr).
 
+## Used by:
+
+- [ReactSurface](https://github.com/harmon25/react_surface) to provide the SSR macro.

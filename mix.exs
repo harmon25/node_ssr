@@ -20,7 +20,6 @@ defmodule NodeSsr.MixProject do
       mod: {NodeSsr.Application, []},
       env: [
         count: 1,
-        module_paths: ["./assets/node_modules", "./assets"],
         log_prefix: "/tmp",
         component_path: "js/components",
         component_ext: ".js"

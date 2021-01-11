@@ -7,17 +7,16 @@ defmodule NodeSsrTest do
   end
 
   setup do
-    all_ports = NodeSsr.all_ports()
-    [ports: all_ports]
+    port = NodeSsr.get_port()
+    [port: port]
   end
 
-  test "app launches and exposes a single tcp port", %{ports: ports} do
-    assert length(ports) == 1
+  test "app launches and exposes a single tcp port", %{port: port} do
+    assert port != nil
   end
 
-  test "responds to a GET", %{ports: ports} do
-    [{port, _pid}] = ports
-    assert NodeSsr.check_render_service(port) === :ok
+  test "responds to a GET", _ do
+    assert NodeSsr.check_render_service() === :ok
   end
 
   test "responds to a POST", _ do
@@ -30,16 +29,15 @@ defmodule NodeSsrTest do
     assert result.props === props
   end
 
-  test "killing application terminates workers, and cleans up ports", %{ports: ports} do
-    [{port, _pid}] = ports
-    # stop application, and all children..
-    Application.stop(:node_ssr)
+  test "killing application terminates workers, and cleans up ports", _ do
 
     on_exit(fn ->
       Application.ensure_all_started(:node_ssr)
     end)
 
-    assert NodeSsr.check_render_service(port) === :error
-    assert NodeSsr.all_ports() == []
+    # stop application, and all children..
+    Application.stop(:node_ssr)
+    assert NodeSsr.check_render_service() === :error
+    assert NodeSsr.get_port() == nil
   end
 end

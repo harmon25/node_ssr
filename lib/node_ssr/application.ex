@@ -8,13 +8,14 @@ defmodule NodeSsr.Application do
   @impl true
   def start(_type, _args) do
     count = conf(:count, 1)
-    script_path = conf(:script_path, nil) || raise "Must provide a script path"
-    mod_paths = conf(:module_paths, ["./assets/node_modules", "./assets"]) |> join_mod_paths()
+    assets_path = conf(:assets_path, nil) || raise "Must provide a path to your assets/component directory"
+    script_name = conf(:script_name, "ssr.js")
+
 
     children = [ NodeSsr.Watcher.child_spec(
       id: NodeSsr.Watcher,
-      node_path: mod_paths,
-      script_path: script_path,
+      assets_path: assets_path,
+      script_name: script_name,
       count: count,
       component_ext: conf(:component_ext, ".js"),
       component_path: conf(:component_path, "js/components"),
@@ -31,7 +32,7 @@ defmodule NodeSsr.Application do
   @impl true
   def stop(_state) do
     # clean up persisten term when exited
-    :persistent_term.erase(:node_ssr_ports)
+    :persistent_term.erase(:node_ssr_port)
     :ok
   end
 
