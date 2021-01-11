@@ -25,6 +25,7 @@ defmodule NodeSsr.Watcher do
 
     # could open this up via an option to allow passing more into the node env.
     env = [
+      {"NODE_PATH", "#{opts[:assets_path]};#{opts[:assets_path]}/node_modules"},
       {"COMPONENT_PATH", opts[:component_path]},
       {"COMPONENT_EXT", opts[:component_ext]},
       # this is used in the node process to message back when it is ready for http calls
