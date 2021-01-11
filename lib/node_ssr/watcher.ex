@@ -29,12 +29,12 @@ defmodule NodeSsr.Watcher do
       {"COMPONENT_PATH", opts[:component_path]},
       {"COMPONENT_EXT", opts[:component_ext]},
       # this is used in the node process to message back when it is ready for http calls
-      {"SIGNAL_PORT", udp_port}
+      {"SIGNAL_PORT", "#{udp_port}"}
     ]
 
     {:ok, pid, os_pid} =
       [node_exe, opts[:script_path]]
-      |> Exexec.run_link(
+      |> :exec.run_link(
         stderr: stderr_path(opts),
         stdout: stdout_path(opts),
         env: env
@@ -53,7 +53,7 @@ defmodule NodeSsr.Watcher do
         {:ok, %{pid: pid, port: port_int, os_pid: os_pid}}
 
       _ ->
-        Exexec.stop(pid)
+        :exec.stop(pid)
         {:stop, "Node process failed to start..."}
     end
   end
@@ -69,7 +69,7 @@ defmodule NodeSsr.Watcher do
   @impl true
   def terminate(state, reason) do
     Logger.debug("Terminated #{__MODULE__} on port #{state.port}, reason: #{reason}")
-    Exexec.stop(state.pid)
+    :exec.stop(state.pid)
     remove_port(state.port)
     :normal
   end

@@ -1,15 +1,17 @@
 # NodeSsr
 
 Elixir Application for managing nodejs worker processes, whose responsibility is server side rendering.
-Since this is an application - it can be used easily at compile time by simply calling `Application.ensure_all_started(:node_ssr)` before any calls to `NodeSsr.render/2` 
+Since this is an application - it can be used easily at compile time by simply calling `Application.ensure_all_started(:node_ssr)` before any calls to `NodeSsr.render/2`.
+
+Since we are using `erlexec` to launch the nodejs process, Windows it not currently supported. Am open to changing the external process launching for better Windows compatibility.
 
 NodeSsr was designed to be used at compile time - but could be used to provide SSR at runtime for a Phoenix application.
 
-Communication between nodejs and elixir is done through a basic [http server](https://nodejs.org/api/http.html#http_class_http_server) running in each nodejs SSR worker process.
+IPC between Nodejs and Elixir is done through a basic node [http server](https://nodejs.org/api/http.html#http_class_http_server) running in each nodejs worker process. The design is intentional to avoid the complications of using stdout
 
 Used by [ReactSurface](https://github.com/harmon25/react_surface) to provide the SSR macro.
 
-Could be used to provide SSR for other frameworks like Vue based on how ReactSurface is implemented.
+Could be leveraged to provide SSR for other frameworks like Vue, Svelte etc based on how ReactSurface is implemented.
 
 ## Usage Instructions
 
@@ -32,17 +34,18 @@ In package.json add the following dependency:
 ## Configuration 
 ```elixir
 config :node_ssr,
-   script_path: "#{File.cwd!()}/assets/ssr.js" # REQUIRED - this should do in most cases unless you rename or move the generated ssr.js script
+   script_path: "#{File.cwd!()}/assets/ssr.js" # REQUIRED - This should live alongside your assets package.json
 ```
 
 Optional requirements:
 ``` elixir
-  component_path: "js/components" # this is the default, relative path from assets.
-  component_ext: ".js" # this is the default, to help with nodejs require statements.
+  component_path: "js/components" # this is the default, relative path to your components directory from assets/.
+  component_ext: ".js" # this is the default, to help with nodejs require statements
   count: 1 # this is the number of node processes to launch - likely not necessary to have more than 1, unless rendering lots of components
 ```
 
-## Example SSR script 
+## Example SSR script
+This script is launched by `erlexec`, and should be able to resolve and render your components 
 
 ```javascript
 #!/bin/env node

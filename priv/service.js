@@ -6,6 +6,8 @@
 
 const http = require("http");
 const dgram = require("dgram");
+const cluster = require("cluster");
+const numCPUs = require("os").cpus().length;
 
 const defaultOpts = {
   debug: false,
@@ -18,25 +20,39 @@ const defaultOpts = {
  * @param {Object} opts
  */
 function start(render, opts = defaultOpts) {
-  const { SIGNAL_PORT } = process.env;
-  const client = dgram.createSocket("udp4");
+  if (cluster.isMaster) {
+    console.log(`Master ${process.pid} is running`);
 
-  opts = { ...defaultOpts, ...opts };
+    // Fork workers.
+    for (let i = 0; i < numCPUs; i++) {
+      cluster.fork();
+    }
 
-  const server = http
-    .createServer(requestHandler(render, opts))
-    .listen({ port: 0 }, () => {
-      const portStr = `${server.address().port}`;
-      console.log("Starting ssr service on port: ", portStr);
-      client.send(
-        Buffer.from(portStr),
-        parseInt(SIGNAL_PORT),
-        "localhost",
-        (err) => {
-          client.close();
-        }
-      );
+    cluster.on("exit", (worker, code, signal) => {
+      console.log(`worker ${worker.process.pid} died`);
     });
+  } else {
+    const { SIGNAL_PORT } = process.env;
+    const client = dgram.createSocket("udp4");
+
+    opts = { ...defaultOpts, ...opts };
+
+    const server = http
+      .createServer(requestHandler(render, opts))
+      .listen(0, () => {
+        const portStr = `${server.address().port}`;
+         client.send(
+          Buffer.from(portStr),
+          parseInt(SIGNAL_PORT),
+          "localhost",
+          (err) => {
+            client.close();
+          }
+        );
+      });
+
+    console.log(`Worker ${process.pid} started`);
+  }
 }
 
 const contentTypeHeader = { "Content-Type": "application/json" };
@@ -59,7 +75,7 @@ function requestHandler(render, opts) {
           res.writeHead(200, contentTypeHeader);
           // calls supplied render function
           // the return of which is json encoded and returned to elixir as the json body of http request
-          resp = render(componentName, props);
+          resp = await render(componentName, props);
         } else {
           resp = {
             error: "Must supply component query parameter",
