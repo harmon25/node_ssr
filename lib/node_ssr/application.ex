@@ -42,6 +42,4 @@ defmodule NodeSsr.Application do
 
   defp conf(key, default), do: Application.get_env(:node_ssr, key, default)
 
-  # if on windows path seperator is not a colon, it is a semicolon - but Exexec will not work on windows anyway...
-  defp join_mod_paths(paths), do: Enum.join(paths, ":")
 end
